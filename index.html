@@ -473,7 +473,8 @@ function getMondayOfDate(d){const day=d.getDay();const mon=new Date(d);mon.setDa
 function getWeekDays(offset){const day=today.getDay();const mon=new Date(today);mon.setDate(today.getDate()-(day===0?6:day-1)+offset*7);mon.setHours(0,0,0,0);return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d;});}
 function calcDayFull(entry){
   if(!entry||!entry.start||entry.type==='absent')return{brut:0,coupure:0,normal:0,hsOuv:0,hsHscoup:0,hsFin:0,totalNet:0};
-  const brut=entry.end?Math.max(0,parseTime(entry.end)-parseTime(entry.start)):0;
+  const rawBrut=entry.end?parseTime(entry.end)-parseTime(entry.start):0;
+  const brut=rawBrut<0?rawBrut+24*60:rawBrut;
   const coupure=(entry.coupureStart&&entry.coupureEnd)?Math.max(0,parseTime(entry.coupureEnd)-parseTime(entry.coupureStart)):0;
   const normal=Math.max(0,brut-coupure);
   const hsOuv=entry.hsOuv||0,hsHscoup=entry.hsHscoup||0,hsFin=entry.hsFin||0;
@@ -521,7 +522,8 @@ function toggleHS(type){hsState[type]=!hsState[type];document.getElementById('to
 function getHSMin(type){if(!hsState[type])return 0;return(parseInt(document.getElementById(type+'-h').value)||0)*60+(parseInt(document.getElementById(type+'-m').value)||0);}
 function updateCalc(){
   const s=document.getElementById('m-start').value,e=document.getElementById('m-end').value,type=document.getElementById('m-type').value;
-  const brut=(type==='absent'||!s||!e)?0:Math.max(0,parseTime(e)-parseTime(s));
+  const rawBrutModal=(!s||!e)?0:parseTime(e)-parseTime(s);
+  const brut=(type==='absent'||!s||!e)?0:(rawBrutModal<0?rawBrutModal+24*60:rawBrutModal);
   const coupDur=getCoupureDur(),normal=Math.max(0,brut-coupDur);
   const hsOuv=getHSMin('ouv'),hsHscoup=getHSMin('hscoup'),hsFin=getHSMin('fin');
   const total=normal+hsOuv+hsHscoup+hsFin;
