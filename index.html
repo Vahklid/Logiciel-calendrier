@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="application-name" content="Suivi Heures">
+<meta name="description" content="Suivi des heures et heures supplémentaires · CCN Sport">
+<title>Suivi Heures · CCN Sport</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0f0f12;--surface:#1a1a20;--surface2:#222229;--border:#2e2e38;
+  --accent:#c8f060;--accent2:#60d4f0;--accent3:#f06090;
+  --text:#f0ede8;--muted:#7a7a8a;--danger:#f06060;--warn:#f0c060;
+  --font-head:'Syne',sans-serif;--font-mono:'DM Mono',monospace;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);max-width:420px;margin:0 auto;display:flex;flex-direction:column;}
+
+/* NAV */
+nav{display:flex;justify-content:space-around;background:var(--surface);border-top:1px solid var(--border);padding:10px 0 calc(14px + var(--safe-bottom));flex-shrink:0;z-index:100;}
+nav button{background:none;border:none;color:var(--muted);font-size:11px;font-family:var(--font-mono);display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:color .2s;padding:4px 12px;}
+nav button.active{color:var(--accent);}
+nav button svg{width:20px;height:20px;}
+
+/* PAGES */
+.pages{flex:1;overflow:hidden;position:relative;}
+.page{display:none;height:0;overflow:hidden;}
+.page.active{display:flex;flex-direction:column;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px;}
+
+.hdr{padding:20px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10;}
+.hdr-title{font-family:var(--font-head);font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.hdr-sub{color:var(--muted);font-size:11px;margin-top:2px;}
+.ccn-badge{background:rgba(240,192,96,.1);border:1px solid rgba(240,192,96,.25);border-radius:6px;padding:4px 8px;font-size:9px;color:var(--warn);letter-spacing:1px;white-space:nowrap;margin-top:4px;}
+
+/* CALENDRIER */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.cal-nav button{background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;font-family:var(--font-mono);font-size:13px;cursor:pointer;}
+.cal-nav-label{font-family:var(--font-head);font-size:16px;font-weight:700;}
+.cal-grid-header{display:grid;grid-template-columns:36px repeat(7,1fr);padding:8px 12px 4px;gap:2px;}
+.cal-grid-header span{font-size:9px;color:var(--muted);text-align:center;letter-spacing:1px;}
+.cal-body{padding:0 12px 8px;}
+.cal-week-row{display:grid;grid-template-columns:36px repeat(7,1fr);gap:2px;margin-bottom:2px;align-items:stretch;}
+.wn-badge{display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);font-weight:500;}
+.cal-day{border-radius:8px;padding:4px 2px;cursor:pointer;transition:background .15s,border-color .15s;min-height:56px;display:flex;flex-direction:column;align-items:center;border:1px solid transparent;}
+.cal-day:active{transform:scale(.96);}
+.cal-day.other-month{opacity:.3;}
+.cal-day.weekend{opacity:.5;cursor:default;}
+.cal-day.today{border-color:var(--accent);}
+.cal-day.has-surplus{background:rgba(200,240,96,.07);}
+.cal-day.has-neutral{background:rgba(96,212,240,.05);}
+.cal-day.selected{background:rgba(200,240,96,.18);border-color:var(--accent);}
+.day-num{font-size:12px;font-weight:500;color:var(--text);margin-bottom:1px;}
+.cal-day.weekend .day-num{color:var(--muted);}
+.cal-day.today .day-num{color:var(--accent);font-weight:700;}
+.day-pip{width:5px;height:5px;border-radius:50%;margin:1px auto;}
+.day-pip.surplus{background:var(--accent);}
+.day-pip.neutral{background:var(--accent2);}
+.day-hs{font-size:9px;margin-top:1px;text-align:center;}
+.day-hs.pos{color:var(--accent);}
+.day-hs.neutral{color:var(--accent2);}
+.day-hs-extra{font-size:8px;color:var(--accent3);margin-top:1px;}
+.week-neutral-bar{background:rgba(96,212,240,.06);border:1px solid rgba(96,212,240,.15);border-radius:4px;margin:0 12px 2px;padding:3px 8px;display:flex;align-items:center;justify-content:space-between;}
+.week-neutral-bar span{font-size:9px;color:var(--accent2);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:420px;padding:20px 20px calc(36px + var(--safe-bottom));transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.28,1);max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+.modal-title{font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:2px;}
+.modal-meta{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.modal-week-info{font-size:10px;color:var(--accent2);margin-bottom:16px;padding:6px 10px;background:rgba(96,212,240,.07);border:1px solid rgba(96,212,240,.15);border-radius:6px;}
+
+.section-title{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin:16px 0 10px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.field-label{font-size:10px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:6px;}
+.time-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.time-field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 10px;color:var(--text);font-family:var(--font-mono);font-size:18px;font-weight:500;text-align:center;}
+.time-field input:focus{outline:none;border-color:var(--accent);}
+.field-row{margin-bottom:10px;}
+.field-row select,.field-row input[type=text]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-family:var(--font-mono);font-size:13px;}
+.field-row select:focus,.field-row input:focus{outline:none;border-color:var(--accent);}
+.field-row input::placeholder{color:var(--muted);}
+
+.coupure-block{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;transition:border-color .2s;}
+.coupure-block.active-block{border-color:rgba(96,212,240,.4);background:rgba(96,212,240,.04);}
+.coupure-header{display:flex;align-items:center;justify-content:space-between;}
+.coupure-label{font-size:11px;font-weight:500;color:var(--text);}
+.coupure-tag{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+.coupure-toggle{width:36px;height:20px;background:var(--border);border-radius:10px;transition:background .2s;cursor:pointer;flex-shrink:0;position:relative;}
+.coupure-toggle.on{background:var(--accent2);}
+.coupure-toggle-knob{position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;}
+.coupure-toggle.on .coupure-toggle-knob{transform:translateX(16px);}
+.coupure-inputs{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.coupure-inputs .time-field input{font-size:16px;background:var(--bg);}
+.coupure-inputs .time-field input:focus{border-color:var(--accent2);}
+.coupure-duration{font-family:var(--font-head);font-size:13px;font-weight:600;color:var(--accent2);text-align:center;margin-top:8px;grid-column:1/-1;}
+
+.hs-block{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;transition:border-color .2s;}
+.hs-block.active-block{border-color:rgba(240,96,144,.35);background:rgba(240,96,144,.04);}
+.hs-block-header{display:flex;align-items:center;justify-content:space-between;}
+.hs-block-label{font-size:11px;font-weight:500;color:var(--text);}
+.hs-block-tag{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+.hs-toggle-track{width:36px;height:20px;background:var(--border);border-radius:10px;transition:background .2s;cursor:pointer;flex-shrink:0;position:relative;}
+.hs-toggle-track.on{background:var(--accent3);}
+.hs-toggle-knob{position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;}
+.hs-toggle-track.on .hs-toggle-knob{transform:translateX(16px);}
+.hs-block-inputs{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.hs-input-wrap label{font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:5px;}
+.hs-input-wrap input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:var(--font-mono);font-size:16px;font-weight:500;text-align:center;}
+.hs-input-wrap input:focus{outline:none;border-color:var(--accent3);}
+.hs-duration-display{font-family:var(--font-head);font-size:13px;font-weight:600;color:var(--accent3);text-align:center;margin-top:8px;grid-column:1/-1;}
+
+.total-recap{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;}
+.total-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;}
+.total-row .tl{font-size:11px;color:var(--muted);}
+.total-row .tv{font-family:var(--font-head);font-size:13px;font-weight:700;}
+.total-row.main-total{border-top:1px solid var(--border);margin-top:6px;padding-top:10px;}
+.total-row.main-total .tl{font-size:12px;color:var(--text);}
+.total-row.main-total .tv{font-size:18px;color:var(--accent);}
+.tv.hs-color{color:var(--accent3);}
+.tv.coup-color{color:var(--accent2);}
+
+.ccn-info{background:rgba(240,192,96,.07);border:1px solid rgba(240,192,96,.2);border-radius:8px;padding:8px 12px;font-size:10px;color:var(--warn);line-height:1.5;margin-bottom:14px;display:none;}
+.modal-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:4px;}
+.btn-del{background:var(--surface2);border:1px solid var(--border);color:var(--danger);border-radius:12px;padding:14px;font-family:var(--font-head);font-weight:600;font-size:14px;cursor:pointer;}
+.btn-save{background:var(--accent);color:#0f0f12;border:none;border-radius:12px;padding:14px;font-family:var(--font-head);font-weight:700;font-size:14px;cursor:pointer;width:100%;}
+
+/* SEMAINE */
+.week-nav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.week-nav button{background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;font-family:var(--font-mono);font-size:13px;cursor:pointer;}
+.week-nav-label{font-family:var(--font-head);font-size:14px;font-weight:600;}
+.week-ccn-banner{margin:10px 16px 0;background:rgba(240,192,96,.07);border:1px solid rgba(240,192,96,.2);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--warn);display:none;}
+.week-summary{margin:12px 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.sum-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;}
+.sum-card .sc-label{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+.sum-card .sc-val{font-family:var(--font-head);font-size:20px;font-weight:700;}
+.sum-card.accent{border-color:rgba(200,240,96,.3);background:rgba(200,240,96,.06);}
+.sum-card.accent .sc-val{color:var(--accent);}
+.sum-card.neutralized{border-color:rgba(96,212,240,.3);background:rgba(96,212,240,.06);}
+.sum-card.neutralized .sc-val{color:var(--accent2);}
+.sum-card.info{border-color:rgba(96,212,240,.3);background:rgba(96,212,240,.06);}
+.sum-card.info .sc-val{color:var(--accent2);}
+.days-list{margin:0 16px;}
+.day-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.day-row:last-child{border-bottom:none;}
+.dr-left{display:flex;align-items:center;gap:12px;}
+.dr-dot{width:8px;height:8px;border-radius:50%;background:var(--border);}
+.dr-dot.worked{background:var(--accent);}
+.dr-dot.has-hs{background:var(--accent3);}
+.dr-name{font-family:var(--font-head);font-size:14px;font-weight:600;}
+.dr-time{font-size:11px;color:var(--muted);}
+.dr-detail{font-size:10px;margin-top:2px;color:var(--muted);}
+.dr-right{text-align:right;}
+.dr-hours{font-family:var(--font-head);font-size:15px;font-weight:700;}
+.dr-hs{font-size:10px;margin-top:1px;}
+.dr-hs.pos{color:var(--accent);}
+.dr-hs.hs-color{color:var(--accent3);}
+.dr-hs.neutralized{color:var(--accent2);}
+
+/* SOLDE */
+.solde-hero{margin:16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;}
+.sh-label{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.sh-val{font-family:var(--font-head);font-size:52px;font-weight:700;line-height:1;color:var(--accent);}
+.sh-sub{font-size:11px;color:var(--muted);margin-top:6px;}
+.sh-recup{margin-top:16px;background:rgba(96,212,240,.08);border:1px solid rgba(96,212,240,.2);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;}
+.sh-recup .label{font-size:10px;color:var(--accent2);letter-spacing:1px;}
+.sh-recup .val{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--accent2);}
+.ccn-explain{margin:0 16px 16px;background:rgba(240,192,96,.06);border:1px solid rgba(240,192,96,.18);border-radius:12px;padding:14px;}
+.ccn-explain-title{font-size:10px;color:var(--warn);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.ccn-explain-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(240,192,96,.1);font-size:12px;}
+.ccn-explain-row:last-child{border-bottom:none;}
+.ccn-explain-row .val{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--accent2);}
+.mini-chart{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.mc-title{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;}
+.bars{display:flex;align-items:flex-end;gap:4px;height:80px;}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.bar-seg{width:100%;min-height:2px;}
+.bar-normal{background:var(--accent);}
+.bar-hs{background:var(--accent3);}
+.bar-neutral{background:var(--accent2);}
+.bar-label{font-size:9px;color:var(--muted);}
+.recup-block{margin:0 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.recup-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);}
+.recup-item:last-child{border-bottom:none;}
+.ri-val{font-family:var(--font-head);font-size:15px;font-weight:700;}
+.ri-val.pending{color:var(--accent2);}
+.ri-val.taken{color:var(--muted);text-decoration:line-through;}
+
+/* EXPORT */
+.export-list{margin:16px;display:flex;flex-direction:column;gap:10px;}
+.exp-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.exp-card:active{border-color:var(--accent);}
+.ec-left{display:flex;align-items:center;gap:12px;}
+.ec-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.ec-label{font-family:var(--font-head);font-size:14px;font-weight:600;}
+.ec-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+
+.toast{position:fixed;bottom:calc(90px + var(--safe-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#0f0f12;font-family:var(--font-head);font-weight:700;font-size:13px;padding:10px 20px;border-radius:50px;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="pages">
+
+<!-- PAGE CALENDRIER -->
+<div class="page active" id="page-cal">
+  <div class="hdr">
+    <div><div class="hdr-title">Calendrier</div><div class="hdr-sub">Appuie sur un jour pour saisir</div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+      <button id="today-btn" onclick="goToToday()" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:8px;padding:4px 10px;font-family:var(--font-head);font-weight:700;font-size:13px;cursor:pointer;min-width:36px;"></button>
+      <div class="ccn-badge">CCN SPORT</div>
+    </div>
+  </div>
+  <div class="cal-nav">
+    <button onclick="changeMonth(-1)">◀</button>
+    <span class="cal-nav-label" id="cal-month-label"></span>
+    <button onclick="changeMonth(1)">▶</button>
+  </div>
+  <div class="cal-grid-header">
+    <span>S.</span>
+    <span>LUN</span><span>MAR</span><span>MER</span><span>JEU</span><span>VEN</span><span>SAM</span><span>DIM</span>
+  </div>
+  <div class="cal-body" id="cal-body"></div>
+</div>
+
+<!-- PAGE SEMAINE -->
+<div class="page" id="page-semaine">
+  <div class="hdr">
+    <div><div class="hdr-title">Semaine</div><div class="hdr-sub" id="semaine-annee"></div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+      <button id="today-week-btn" onclick="goToCurrentWeek()" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:8px;padding:4px 10px;font-family:var(--font-head);font-weight:700;font-size:13px;cursor:pointer;min-width:36px;"></button>
+      <div class="ccn-badge">CCN SPORT</div>
+    </div>
+  </div>
+  <div class="week-nav">
+    <button onclick="changeWeek(-1)">◀</button>
+    <span class="week-nav-label" id="week-label"></span>
+    <button onclick="changeWeek(1)">▶</button>
+  </div>
+  <div class="week-ccn-banner" id="week-ccn-banner">Semaine incomplète · Déficit neutralisé (CCN Sport)</div>
+  <div class="week-summary">
+    <div class="sum-card"><div class="sc-label">TOTAL</div><div class="sc-val" id="sw-total">0h00</div></div>
+    <div class="sum-card" id="sw-hs-card"><div class="sc-label">HS COMPTABILISÉES</div><div class="sc-val" id="sw-hs">+0h00</div></div>
+    <div class="sum-card"><div class="sc-label">JOURS SAISIS</div><div class="sc-val" id="sw-jours">0/5</div></div>
+    <div class="sum-card info"><div class="sc-label">SOLDE CUMULÉ</div><div class="sc-val" id="sw-solde">0h00</div></div>
+  </div>
+  <div class="days-list" id="days-list"></div>
+</div>
+
+<!-- PAGE SOLDE -->
+<div class="page" id="page-solde">
+  <div class="hdr"><div><div class="hdr-title">Solde & récup</div></div><div class="ccn-badge">CCN SPORT</div></div>
+  <div class="solde-hero">
+    <div class="sh-label">SOLDE HEURES SUPP</div>
+    <div class="sh-val" id="sh-val">+0h00</div>
+    <div class="sh-sub">Cumulé · déficits neutralisés (CCN Sport)</div>
+    <div class="sh-recup">
+      <div><div class="label">RÉCUPÉRATION DISPONIBLE</div></div>
+      <div class="val" id="sh-recup-val">0h00</div>
+    </div>
+  </div>
+  <div style="margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+    <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">PARAMÈTRE SALAIRE</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <label style="font-size:11px;color:var(--muted);white-space:nowrap;">Taux horaire brut</label>
+      <input type="number" id="taux-horaire" min="0" step="0.01" placeholder="ex: 12.50"
+        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--font-mono);font-size:15px;"
+        oninput="saveTaux();renderSolde()">
+      <span style="font-size:12px;color:var(--muted);">€/h</span>
+    </div>
+  </div>
+  <div style="margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;">
+    <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">MONTANT DÛ PAR L'EMPLOYEUR</div>
+    <div style="font-family:var(--font-head);font-size:44px;font-weight:700;color:var(--warn);line-height:1;" id="montant-du">—</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;">brut · majorations légales incluses</div>
+    <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px;" id="montant-detail"></div>
+  </div>
+  <div class="ccn-explain">
+    <div class="ccn-explain-title">Règle CCN Sport appliquée</div>
+    <div class="ccn-explain-row"><span>HS accumulées (total)</span><span class="val" id="ccn-brut">0h00</span></div>
+    <div class="ccn-explain-row"><span>dont HS ouverture</span><span class="val" id="ccn-ouv">0h00</span></div>
+    <div class="ccn-explain-row"><span>dont HS entre-coupure</span><span class="val" id="ccn-coup">0h00</span></div>
+    <div class="ccn-explain-row"><span>dont HS fin journée</span><span class="val" id="ccn-fin">0h00</span></div>
+    <div class="ccn-explain-row"><span>Semaines neutralisées</span><span class="val" id="ccn-semaines">0</span></div>
+    <div class="ccn-explain-row"><span>Déficit ignoré</span><span class="val" id="ccn-deficit">0h00</span></div>
+  </div>
+  </div>
+  <div class="mini-chart">
+    <div class="mc-title">HS PAR SEMAINE (8 dernières)</div>
+    <div class="bars" id="chart-bars"></div>
+  </div>
+  <div class="recup-block">
+    <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">RÉCUPÉRATIONS</div>
+    <div id="recup-list"><div style="color:var(--muted);font-size:12px;padding:12px 0">Aucune récupération</div></div>
+    <button class="btn-save" style="margin-top:12px;width:100%;font-size:13px;" onclick="addRecup()">+ Ajouter une récupération</button>
+  </div>
+</div>
+
+<!-- PAGE EXPORT -->
+<div class="page" id="page-export">
+  <div class="hdr"><div class="hdr-title">Export</div></div>
+  <div class="export-list">
+    <div class="exp-card" onclick="exportCSV()">
+      <div class="ec-left"><div class="ec-icon" style="background:rgba(200,240,96,.1)">📊</div><div><div class="ec-label">Export CSV</div><div class="ec-desc">Détail complet avec coupure & HS</div></div></div>
+      <span style="color:var(--muted);font-size:18px">›</span>
+    </div>
+    <div class="exp-card" onclick="window.print();showToast('Impression lancée')">
+      <div class="ec-left"><div class="ec-icon" style="background:rgba(240,96,144,.1)">📄</div><div><div class="ec-label">Imprimer / PDF</div><div class="ec-desc">Rapport mensuel</div></div></div>
+      <span style="color:var(--muted);font-size:18px">›</span>
+    </div>
+    <div class="exp-card" onclick="copyClipboard()">
+      <div class="ec-left"><div class="ec-icon" style="background:rgba(96,212,240,.1)">📋</div><div><div class="ec-label">Copier le résumé</div><div class="ec-desc">Presse-papier</div></div></div>
+      <span style="color:var(--muted);font-size:18px">›</span>
+    </div>
+  </div>
+  <div style="margin:0 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+    <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">APERÇU</div>
+    <div id="export-preview" style="font-size:11px;line-height:1.8;color:var(--muted);white-space:pre;overflow:auto;max-height:260px;"></div>
+  </div>
+</div>
+
+</div><!-- /pages -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-week-info" id="modal-week-info"></div>
+    <div class="section-title">Heures normales</div>
+    <div class="time-row">
+      <div class="time-field"><label class="field-label">ARRIVÉE</label><input type="time" id="m-start" value="09:00"></div>
+      <div class="time-field"><label class="field-label">DÉPART</label><input type="time" id="m-end" value="17:00"></div>
+    </div>
+    <div class="coupure-block" id="block-coupure">
+      <div class="coupure-header">
+        <div><div class="coupure-label">Coupure</div><div class="coupure-tag">Déduite du temps de travail</div></div>
+        <div class="coupure-toggle" id="toggle-coupure" onclick="toggleCoupure()"><div class="coupure-toggle-knob"></div></div>
+      </div>
+      <div class="coupure-inputs" id="inputs-coupure" style="display:none">
+        <div class="time-field"><label class="field-label">DÉBUT COUPURE</label><input type="time" id="coup-start" value="12:00"></div>
+        <div class="time-field"><label class="field-label">FIN COUPURE</label><input type="time" id="coup-end" value="14:00"></div>
+        <div class="coupure-duration" id="coup-duration">Coupure : 2h00 déduite</div>
+      </div>
+    </div>
+    <div class="field-row" style="margin-top:10px;">
+      <label class="field-label">TYPE DE JOURNÉE</label>
+      <select id="m-type">
+        <option value="normal">Normal</option>
+        <option value="ferie">Férié travaillé</option>
+        <option value="absent">Absent / congé</option>
+      </select>
+    </div>
+    <div class="section-title">Récupération</div>
+    <div class="hs-block" id="block-recup" style="border-color:rgba(96,212,240,.2);">
+      <div class="hs-block-header">
+        <div><div class="hs-block-label">Jour de récupération</div><div class="hs-block-tag">Déduit du solde HS (ratio ×1.25)</div></div>
+        <div class="hs-toggle-track" id="toggle-recup" onclick="toggleRecupDay()" style=""><div class="hs-toggle-knob"></div></div>
+      </div>
+      <div class="hs-block-inputs" id="inputs-recup" style="display:none">
+        <div class="hs-input-wrap"><label>HEURES POSÉES</label><input type="number" id="recup-h" min="0" max="12" value="0" oninput="updateCalc()"></div>
+        <div class="hs-input-wrap"><label>MINUTES</label><input type="number" id="recup-m" min="0" max="59" step="15" value="0" oninput="updateCalc()"></div>
+        <div class="hs-duration-display" id="recup-display" style="color:var(--accent2)">0h00 posées → 0h00 HS déduites</div>
+      </div>
+    </div>
+    <div class="section-title">Heures supplémentaires</div>
+    <div class="hs-block" id="block-ouv">
+      <div class="hs-block-header">
+        <div><div class="hs-block-label">HS Ouverture</div><div class="hs-block-tag">Avant la journée normale</div></div>
+        <div class="hs-toggle-track" id="toggle-ouv" onclick="toggleHS('ouv')"><div class="hs-toggle-knob"></div></div>
+      </div>
+      <div class="hs-block-inputs" id="inputs-ouv" style="display:none">
+        <div class="hs-input-wrap"><label>HEURES</label><input type="number" id="ouv-h" min="0" max="12" value="0" oninput="updateCalc()"></div>
+        <div class="hs-input-wrap"><label>MINUTES</label><input type="number" id="ouv-m" min="0" max="59" step="15" value="0" oninput="updateCalc()"></div>
+        <div class="hs-duration-display" id="ouv-display">0h00</div>
+      </div>
+    </div>
+    <div class="hs-block" id="block-hscoup">
+      <div class="hs-block-header">
+        <div><div class="hs-block-label">HS Entre-coupure</div><div class="hs-block-tag">Pendant la coupure</div></div>
+        <div class="hs-toggle-track" id="toggle-hscoup" onclick="toggleHS('hscoup')"><div class="hs-toggle-knob"></div></div>
+      </div>
+      <div class="hs-block-inputs" id="inputs-hscoup" style="display:none">
+        <div class="hs-input-wrap"><label>HEURES</label><input type="number" id="hscoup-h" min="0" max="12" value="0" oninput="updateCalc()"></div>
+        <div class="hs-input-wrap"><label>MINUTES</label><input type="number" id="hscoup-m" min="0" max="59" step="15" value="0" oninput="updateCalc()"></div>
+        <div class="hs-duration-display" id="hscoup-display">0h00</div>
+      </div>
+    </div>
+    <div class="hs-block" id="block-fin">
+      <div class="hs-block-header">
+        <div><div class="hs-block-label">HS Fin de journée</div><div class="hs-block-tag">Après le départ · jusqu'à 00h00</div></div>
+        <div class="hs-toggle-track" id="toggle-fin" onclick="toggleHS('fin')"><div class="hs-toggle-knob"></div></div>
+      </div>
+      <div class="hs-block-inputs" id="inputs-fin" style="display:none">
+        <div class="hs-input-wrap"><label>HEURES</label><input type="number" id="fin-h" min="0" max="12" value="0" oninput="updateCalc()"></div>
+        <div class="hs-input-wrap"><label>MINUTES</label><input type="number" id="fin-m" min="0" max="59" step="15" value="0" oninput="updateCalc()"></div>
+        <div class="hs-duration-display" id="fin-display">0h00</div>
+      </div>
+    </div>
+    <div class="field-row" style="margin-top:12px;">
+      <label class="field-label">NOTE</label>
+      <input type="text" id="m-note" placeholder="Optionnel…">
+    </div>
+    <div class="total-recap">
+      <div class="total-row"><span class="tl">Présence brute</span><span class="tv" id="recap-brut">8h00</span></div>
+      <div class="total-row" id="recap-row-coup" style="display:none"><span class="tl">− Coupure</span><span class="tv coup-color" id="recap-coup-dur">2h00</span></div>
+      <div class="total-row"><span class="tl">Heures normales nettes</span><span class="tv" id="recap-normal">7h00</span></div>
+      <div class="total-row" id="recap-row-ouv" style="display:none"><span class="tl">+ HS ouverture</span><span class="tv hs-color" id="recap-ouv">0h00</span></div>
+      <div class="total-row" id="recap-row-hscoup" style="display:none"><span class="tl">+ HS entre-coupure</span><span class="tv hs-color" id="recap-hscoup">0h00</span></div>
+      <div class="total-row" id="recap-row-fin" style="display:none"><span class="tl">+ HS fin journée</span><span class="tv hs-color" id="recap-fin">0h00</span></div>
+      <div class="total-row main-total"><span class="tl">Total du jour</span><span class="tv" id="recap-total">7h00</span></div>
+      <div class="total-row"><span class="tl">HS semaine (CCN)</span><span class="tv" id="recap-hs-ccn" style="color:var(--accent2)">—</span></div>
+    </div>
+    <div class="ccn-info" id="m-ccn-info">⚠ Déficit sur cette journée. La règle CCN Sport s'applique à la semaine — pas de débit si la semaine reste sous 35h.</div>
+    <div class="modal-actions">
+      <button class="btn-del" id="btn-del" onclick="deleteDay()">Effacer</button>
+      <button class="btn-save" onclick="saveModal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<nav>
+  <button class="active" onclick="goto('cal',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+    Calendrier
+  </button>
+  <button onclick="goto('semaine',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+    Semaine
+  </button>
+  <button onclick="goto('solde',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+    Solde
+  </button>
+  <button onclick="goto('export',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+    Export
+  </button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+const REF_SEMAINE=35*60,REF_JOUR=7*60;
+const MONTHS_FR=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MONTHS_S=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+const DAYS_FR=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+let data=JSON.parse(localStorage.getItem('suivi_heures')||'{}');
+let recups=JSON.parse(localStorage.getItem('suivi_recups')||'[]');
+const today=new Date();today.setHours(0,0,0,0);
+let calYear=today.getFullYear(),calMonth=today.getMonth(),weekOff=0,selectedKey=null,modalDayDate=null;
+let coupureOn=false;
+const hsState={ouv:false,hscoup:false,fin:false};
+function save(){localStorage.setItem('suivi_heures',JSON.stringify(data));localStorage.setItem('suivi_recups',JSON.stringify(recups));}
+function dateKey(d){return d.toISOString().slice(0,10);}
+function parseTime(t){if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;}
+function minToStr(m){const abs=Math.abs(m);return(m<0?'-':'')+Math.floor(abs/60)+'h'+String(abs%60).padStart(2,'0');}
+function getISOWeek(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+3-(dt.getDay()+6)%7);const w1=new Date(dt.getFullYear(),0,4);return 1+Math.round(((dt-w1)/86400000-3+(w1.getDay()+6)%7)/7);}
+function getMondayOfDate(d){const day=d.getDay();const mon=new Date(d);mon.setDate(d.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);return mon;}
+function getWeekDays(offset){const day=today.getDay();const mon=new Date(today);mon.setDate(today.getDate()-(day===0?6:day-1)+offset*7);mon.setHours(0,0,0,0);return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d;});}
+function calcDayFull(entry){
+  if(!entry||!entry.start||entry.type==='absent')return{brut:0,coupure:0,normal:0,hsOuv:0,hsHscoup:0,hsFin:0,totalNet:0};
+  const brut=entry.end?Math.max(0,parseTime(entry.end)-parseTime(entry.start)):0;
+  const coupure=(entry.coupureStart&&entry.coupureEnd)?Math.max(0,parseTime(entry.coupureEnd)-parseTime(entry.coupureStart)):0;
+  const normal=Math.max(0,brut-coupure);
+  const hsOuv=entry.hsOuv||0,hsHscoup=entry.hsHscoup||0,hsFin=entry.hsFin||0;
+  const recupMin=entry.recupMin||0;
+  const recupHS=Math.round(recupMin/1.25);
+  return{brut,coupure,normal,hsOuv,hsHscoup,hsFin,recupMin,recupHS,totalNet:normal+hsOuv+hsHscoup+hsFin-recupHS};
+}
+function calcDayNet(entry){return calcDayFull(entry).totalNet;}
+function calcWeekByMonday(monday){
+  let totalNet=0,hsOuv=0,hsHscoup=0,hsFin=0;
+  for(let i=0;i<5;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);const f=calcDayFull(data[dateKey(d)]);totalNet+=f.totalNet;hsOuv+=f.hsOuv;hsHscoup+=f.hsHscoup;hsFin+=f.hsFin;}
+  const rawHS=totalNet-REF_SEMAINE;
+  return{totalNet,rawHS,hs:Math.max(0,rawHS),neutralized:rawHS<0,deficit:rawHS<0?Math.abs(rawHS):0,hsOuv,hsHscoup,hsFin};
+}
+function getTotalSolde(){
+  const weekKeys=new Set();
+  Object.keys(data).forEach(k=>{const d=new Date(k);weekKeys.add(d.getFullYear()+'-W'+String(getISOWeek(d)).padStart(2,'0'));});
+  let totalHS=0,totalDeficit=0,neutralizedCount=0,allOuv=0,allHscoup=0,allFin=0;
+  weekKeys.forEach(wk=>{
+    const[yr,wStr]=wk.split('-W');
+    const jan4=new Date(parseInt(yr),0,4);
+    const monday=new Date(jan4.getTime()+((parseInt(wStr)-1)*7-(jan4.getDay()+6)%7)*86400000);monday.setHours(0,0,0,0);
+    const r=calcWeekByMonday(monday);
+    totalHS+=r.hs;allOuv+=r.hsOuv;allHscoup+=r.hsHscoup;allFin+=r.hsFin;
+    if(r.neutralized){neutralizedCount++;totalDeficit+=r.deficit;}
+  });
+  const taken=recups.filter(r=>r.taken).reduce((s,r)=>s+(r.minutesHS||r.minutes),0);
+  return{solde:totalHS-taken,neutralizedCount,totalDeficit,totalHS,allOuv,allHscoup,allFin};
+}
+function toggleCoupure(){coupureOn=!coupureOn;document.getElementById('toggle-coupure').classList.toggle('on',coupureOn);document.getElementById('inputs-coupure').style.display=coupureOn?'grid':'none';document.getElementById('block-coupure').classList.toggle('active-block',coupureOn);updateCalc();}
+function getCoupureDur(){if(!coupureOn)return 0;return Math.max(0,parseTime(document.getElementById('coup-end').value)-parseTime(document.getElementById('coup-start').value));}
+function toggleRecupDay(){
+  const on=document.getElementById('toggle-recup').classList.toggle('on');
+  document.getElementById('inputs-recup').style.display=on?'grid':'none';
+  document.getElementById('block-recup').style.borderColor=on?'rgba(96,212,240,.4)':'rgba(96,212,240,.2)';
+  document.getElementById('block-recup').style.background=on?'rgba(96,212,240,.04)':'';
+  if(!on){document.getElementById('recup-h').value='0';document.getElementById('recup-m').value='0';}
+  updateCalc();
+}
+function getRecupMin(){
+  if(!document.getElementById('toggle-recup').classList.contains('on'))return 0;
+  return(parseInt(document.getElementById('recup-h').value)||0)*60+(parseInt(document.getElementById('recup-m').value)||0);
+}
+function toggleHS(type){hsState[type]=!hsState[type];document.getElementById('toggle-'+type).classList.toggle('on',hsState[type]);document.getElementById('inputs-'+type).style.display=hsState[type]?'grid':'none';document.getElementById('block-'+type).classList.toggle('active-block',hsState[type]);if(!hsState[type]){document.getElementById(type+'-h').value='0';document.getElementById(type+'-m').value='0';}updateCalc();}
+function getHSMin(type){if(!hsState[type])return 0;return(parseInt(document.getElementById(type+'-h').value)||0)*60+(parseInt(document.getElementById(type+'-m').value)||0);}
+function updateCalc(){
+  const s=document.getElementById('m-start').value,e=document.getElementById('m-end').value,type=document.getElementById('m-type').value;
+  const brut=(type==='absent'||!s||!e)?0:Math.max(0,parseTime(e)-parseTime(s));
+  const coupDur=getCoupureDur(),normal=Math.max(0,brut-coupDur);
+  const hsOuv=getHSMin('ouv'),hsHscoup=getHSMin('hscoup'),hsFin=getHSMin('fin');
+  const total=normal+hsOuv+hsHscoup+hsFin;
+  if(coupureOn)document.getElementById('coup-duration').textContent='Coupure : '+minToStr(coupDur)+' déduite';
+  ['ouv','hscoup','fin'].forEach(t=>document.getElementById(t+'-display').textContent=minToStr(getHSMin(t)));
+  const recupMin=getRecupMin();
+  if(recupMin>0){const hsEquiv=Math.round(recupMin/1.25);document.getElementById('recup-display').textContent=minToStr(recupMin)+' posées → '+minToStr(hsEquiv)+' HS déduites';}
+  else document.getElementById('recup-display').textContent='0h00 posées → 0h00 HS déduites';
+  document.getElementById('recap-brut').textContent=minToStr(brut);
+  document.getElementById('recap-row-coup').style.display=coupureOn?'flex':'none';
+  document.getElementById('recap-coup-dur').textContent=minToStr(coupDur);
+  document.getElementById('recap-normal').textContent=minToStr(normal);
+  document.getElementById('recap-row-ouv').style.display=hsState.ouv?'flex':'none';
+  document.getElementById('recap-row-hscoup').style.display=hsState.hscoup?'flex':'none';
+  document.getElementById('recap-row-fin').style.display=hsState.fin?'flex':'none';
+  document.getElementById('recap-ouv').textContent=minToStr(hsOuv);
+  document.getElementById('recap-hscoup').textContent=minToStr(hsHscoup);
+  document.getElementById('recap-fin').textContent=minToStr(hsFin);
+  document.getElementById('recap-total').textContent=minToStr(total);
+  document.getElementById('recap-total').style.color=(total-REF_JOUR)>=0?'var(--accent)':'var(--accent2)';
+  if(modalDayDate&&selectedKey){
+    const mon=getMondayOfDate(modalDayDate);
+    const fe={start:s,end:e,type,coupureStart:coupureOn?document.getElementById('coup-start').value:null,coupureEnd:coupureOn?document.getElementById('coup-end').value:null,hsOuv,hsHscoup,hsFin};
+    let wt=0;for(let i=0;i<5;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const dk=dateKey(d);wt+=calcDayNet(dk===selectedKey?fe:data[dk]);}
+    const wr=wt-REF_SEMAINE,ccnEl=document.getElementById('recap-hs-ccn');
+    if(wr<0){ccnEl.textContent='0h00 (semaine neutralisée)';ccnEl.style.color='var(--accent2)';}
+    else{ccnEl.textContent='+'+minToStr(Math.max(0,wr))+' pour la sem.';ccnEl.style.color='var(--accent)';}
+  }
+  document.getElementById('m-ccn-info').style.display=(total-REF_JOUR)<0?'block':'none';
+}
+['m-start','m-end','m-type','coup-start','coup-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updateCalc);});
+function openModal(d,key){
+  selectedKey=key;modalDayDate=d;
+  const entry=data[key]||{},mon=getMondayOfDate(d),wn=getISOWeek(d);
+  const{totalNet,neutralized}=calcWeekByMonday(mon);
+  document.getElementById('modal-title').textContent=DAYS_FR[d.getDay()]+' '+d.getDate()+' '+MONTHS_FR[d.getMonth()]+' '+d.getFullYear();
+  document.getElementById('modal-meta').textContent='Semaine '+wn;
+  document.getElementById('modal-week-info').textContent=neutralized?'⚠ Semaine : '+minToStr(totalNet)+' / 35h00 · Déficit neutralisé (CCN Sport)':'✓ Semaine : '+minToStr(totalNet)+' / 35h00';
+  document.getElementById('m-start').value=entry.start||'09:00';
+  document.getElementById('m-end').value=entry.end||'17:00';
+  document.getElementById('m-type').value=entry.type||'normal';
+  document.getElementById('m-note').value=entry.note||'';
+  const hc=!!(entry.coupureStart&&entry.coupureEnd);
+  coupureOn=hc;
+  document.getElementById('toggle-coupure').classList.toggle('on',hc);
+  document.getElementById('inputs-coupure').style.display=hc?'grid':'none';
+  document.getElementById('block-coupure').classList.toggle('active-block',hc);
+  document.getElementById('coup-start').value=entry.coupureStart||'12:00';
+  document.getElementById('coup-end').value=entry.coupureEnd||'14:00';
+  // Charger récup
+  const recupVal=entry.recupMin||0;
+  const recupOn=recupVal>0;
+  document.getElementById('toggle-recup').classList.toggle('on',recupOn);
+  document.getElementById('inputs-recup').style.display=recupOn?'grid':'none';
+  document.getElementById('block-recup').style.borderColor=recupOn?'rgba(96,212,240,.4)':'rgba(96,212,240,.2)';
+  document.getElementById('block-recup').style.background=recupOn?'rgba(96,212,240,.04)':'';
+  document.getElementById('recup-h').value=Math.floor(recupVal/60);
+  document.getElementById('recup-m').value=recupVal%60;
+  ['ouv','hscoup','fin'].forEach(t=>{
+    const k2='hs'+t.charAt(0).toUpperCase()+t.slice(1);
+    const val=entry[k2]||0,hasIt=val>0;
+    hsState[t]=hasIt;
+    document.getElementById('toggle-'+t).classList.toggle('on',hasIt);
+    document.getElementById('inputs-'+t).style.display=hasIt?'grid':'none';
+    document.getElementById('block-'+t).classList.toggle('active-block',hasIt);
+    document.getElementById(t+'-h').value=Math.floor(val/60);
+    document.getElementById(t+'-m').value=val%60;
+  });
+  document.getElementById('btn-del').style.display=entry.start?'block':'none';
+  updateCalc();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(e){if(e&&e.target!==document.getElementById('modal-overlay'))return;document.getElementById('modal-overlay').classList.remove('open');selectedKey=null;modalDayDate=null;renderCal();}
+function saveModal(){
+  if(!selectedKey)return;
+  data[selectedKey]={start:document.getElementById('m-start').value,end:document.getElementById('m-end').value,type:document.getElementById('m-type').value,note:document.getElementById('m-note').value,coupureStart:coupureOn?document.getElementById('coup-start').value:null,coupureEnd:coupureOn?document.getElementById('coup-end').value:null,hsOuv:getHSMin('ouv'),hsHscoup:getHSMin('hscoup'),hsFin:getHSMin('fin'),recupMin:getRecupMin()};
+  save();document.getElementById('modal-overlay').classList.remove('open');selectedKey=null;modalDayDate=null;renderCal();renderSolde();showToast('✓ Journée enregistrée');
+}
+function deleteDay(){if(!selectedKey)return;delete data[selectedKey];save();document.getElementById('modal-overlay').classList.remove('open');selectedKey=null;modalDayDate=null;renderCal();renderSolde();showToast('Journée effacée');}
+function renderCal(){
+  document.getElementById('cal-month-label').textContent=MONTHS_FR[calMonth]+' '+calYear;
+  const body=document.getElementById('cal-body');body.innerHTML='';
+  const first=new Date(calYear,calMonth,1),gridStart=new Date(first);gridStart.setDate(1-(first.getDay()+6)%7);
+  const last=new Date(calYear,calMonth+1,0),gridEnd=new Date(last);gridEnd.setDate(last.getDate()+(6-(last.getDay()+6)%7));
+  let cur=new Date(gridStart);
+  while(cur<=gridEnd){
+    const weekMon=new Date(cur);const{neutralized}=calcWeekByMonday(weekMon);
+    if(neutralized){const b=document.createElement('div');b.className='week-neutral-bar';b.innerHTML=`<span>S${getISOWeek(weekMon)} · Neutralisée (CCN Sport)</span><span style="color:var(--accent2)">0h supp</span>`;body.appendChild(b);}
+    const row=document.createElement('div');row.className='cal-week-row';
+    const wn=document.createElement('div');wn.className='wn-badge';wn.textContent=getISOWeek(cur);row.appendChild(wn);
+    for(let i=0;i<7;i++){
+      const d=new Date(cur),key=dateKey(d);
+      const isToday=d.getTime()===today.getTime(),isOM=d.getMonth()!==calMonth,isWE=d.getDay()===0||d.getDay()===6;
+      const entry=data[key],f=calcDayFull(entry);
+      const hasHS=(f.hsOuv+f.hsHscoup+f.hsFin)>0,hasCoup=!!(entry&&entry.coupureStart);
+      const cell=document.createElement('div');
+      let cls='cal-day';
+      if(isOM)cls+=' other-month';if(isWE)cls+=' weekend';if(isToday)cls+=' today';
+      if(entry&&entry.start&&!isWE)cls+=neutralized?' has-neutral':' has-surplus';
+      if(key===selectedKey)cls+=' selected';
+      cell.className=cls;
+      const num=document.createElement('div');num.className='day-num';num.textContent=d.getDate();cell.appendChild(num);
+      if(entry&&entry.start&&!isWE){
+        const pip=document.createElement('div');pip.className='day-pip '+(neutralized?'neutral':'surplus');cell.appendChild(pip);
+        const hsDiv=document.createElement('div');hsDiv.className='day-hs '+(neutralized?'neutral':'pos');hsDiv.textContent=minToStr(f.totalNet);cell.appendChild(hsDiv);
+        if(hasCoup||hasHS){const extra=document.createElement('div');extra.className='day-hs-extra';extra.textContent=(hasCoup?'⌛':'')+( hasHS?' HS':'');cell.appendChild(extra);}
+      }
+      if(!isWE&&!isOM){cell.style.cursor='pointer';cell.onclick=()=>openModal(d,key);}
+      row.appendChild(cell);cur.setDate(cur.getDate()+1);
+    }
+    body.appendChild(row);
+  }
+}
+function changeMonth(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCal();}
+function changeWeek(dir){weekOff+=dir;renderSemaine();}
+function renderSemaine(){
+  const days=getWeekDays(weekOff),mon=days[0],wn=getISOWeek(mon);
+  document.getElementById('week-label').textContent='S'+wn+' · '+mon.getDate()+' '+MONTHS_S[mon.getMonth()]+' — '+days[6].getDate()+' '+MONTHS_S[days[6].getMonth()];
+  document.getElementById('semaine-annee').textContent=mon.getFullYear()+(mon.getFullYear()!==days[6].getFullYear()?' / '+days[6].getFullYear():'');
+  const{totalNet,hs,neutralized}=calcWeekByMonday(mon);
+  document.getElementById('week-ccn-banner').style.display=neutralized?'block':'none';
+  document.getElementById('sw-total').textContent=minToStr(totalNet);
+  document.getElementById('sw-hs').textContent=(hs>0?'+':'')+minToStr(hs);
+  document.getElementById('sw-hs-card').className='sum-card '+(neutralized?'neutralized':(hs>0?'accent':'neutralized'));
+  const{solde}=getTotalSolde();
+  document.getElementById('sw-solde').textContent=(solde>=0?'+':'')+minToStr(solde);
+  let joursWorked=0;const list=document.getElementById('days-list');list.innerHTML='';
+  days.forEach(d=>{
+    const key=dateKey(d),entry=data[key],isWE=d.getDay()===0||d.getDay()===6;
+    const f=calcDayFull(entry),hasHS=(f.hsOuv+f.hsHscoup+f.hsFin)>0,hasCoup=!!(entry&&entry.coupureStart);
+    if(entry&&entry.start&&!isWE)joursWorked++;
+    const row=document.createElement('div');row.className='day-row';
+    row.onclick=()=>openModal(d,key);
+    let detail='';if(!isWE&&hasCoup)detail=`<div class="dr-detail">coupure ${entry.coupureStart}–${entry.coupureEnd} (${minToStr(f.coupure)})</div>`;
+    let hsHtml='';
+    if(!isWE&&entry&&entry.start){
+      const tags=[];
+      if(f.hsOuv>0)tags.push('ouv:'+minToStr(f.hsOuv));
+      if(f.hsHscoup>0)tags.push('coupure:'+minToStr(f.hsHscoup));
+      if(f.hsFin>0)tags.push('fin:'+minToStr(f.hsFin));
+      if(neutralized)hsHtml=`<div class="dr-hs neutralized">neutralisé</div>`;
+      else if(tags.length)hsHtml=`<div class="dr-hs hs-color">${tags.join(' · ')}</div>`;
+    }
+    row.innerHTML=`<div class="dr-left"><div class="dr-dot ${entry&&entry.start?(hasHS?'has-hs':'worked'):''}"></div><div><div class="dr-name">${DAYS_FR[d.getDay()]}</div><div class="dr-time">${d.getDate()} ${MONTHS_S[d.getMonth()]}${entry&&entry.note?' · '+entry.note:''}</div>${detail}</div></div><div class="dr-right"><div class="dr-hours" style="color:${entry&&entry.start?'var(--text)':'var(--muted)'}">${entry&&entry.start?minToStr(f.totalNet):isWE?'—':'–'}</div>${hsHtml}</div>`;
+    list.appendChild(row);
+  });
+  document.getElementById('sw-jours').textContent=joursWorked+'/5';
+}
+function renderSolde(){
+  const{solde,neutralizedCount,totalDeficit,totalHS,allOuv,allHscoup,allFin}=getTotalSolde();
+  document.getElementById('sh-val').textContent=(solde>=0?'+':'')+minToStr(solde);
+  document.getElementById('sh-recup-val').textContent=minToStr(recups.filter(r=>!r.taken).reduce((s,r)=>s+r.minutes,0));
+  document.getElementById('ccn-brut').textContent=(totalHS>=0?'+':'')+minToStr(totalHS);
+  document.getElementById('ccn-ouv').textContent=minToStr(allOuv);
+  document.getElementById('ccn-coup').textContent=minToStr(allHscoup);
+  document.getElementById('ccn-fin').textContent=minToStr(allFin);
+  document.getElementById('ccn-semaines').textContent=neutralizedCount+' sem.';
+  document.getElementById('ccn-deficit').textContent=minToStr(totalDeficit)+' ignoré';
+  // Montant dû
+  const m=calcMontantDu();
+  const mEl=document.getElementById('montant-du');
+  const dEl=document.getElementById('montant-detail');
+  if(m.total===null){mEl.textContent='—';mEl.style.color='var(--muted)';dEl.innerHTML='<div style="font-size:11px;color:var(--muted)">Renseigne ton taux horaire ci-dessus</div>';}
+  else{
+    mEl.textContent=m.total.toFixed(2)+' €';mEl.style.color='var(--warn)';
+    dEl.innerHTML=m.detail.map(d=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-top:1px solid var(--border)"><span style="color:var(--muted)">${d.label} (${d.val})</span><span style="font-family:var(--font-head);color:var(--warn)">${d.montant} €</span></div>`).join('');
+  }
+  const bars=document.getElementById('chart-bars');bars.innerHTML='';
+  const weeks=[];for(let i=7;i>=0;i--){const d=getWeekDays(-i);weeks.push({label:'S'+getISOWeek(d[0]),...calcWeekByMonday(d[0])});}
+  const maxVal=Math.max(...weeks.map(w=>w.totalNet),REF_SEMAINE+60);
+  weeks.forEach(w=>{
+    const nm=Math.max(0,w.totalNet-(w.hsOuv+w.hsHscoup+w.hsFin));
+    const hp=(w.hsOuv+w.hsHscoup+w.hsFin)/maxVal*100,np=nm/maxVal*100;
+    const wrap=document.createElement('div');wrap.className='bar-wrap';
+    const seg=document.createElement('div');seg.style.cssText='width:100%;display:flex;flex-direction:column-reverse;align-items:stretch;flex:1;';
+    if(hp>0){const s=document.createElement('div');s.className='bar-seg bar-hs';s.style.height=hp+'%';seg.appendChild(s);}
+    if(np>0){const s=document.createElement('div');s.className='bar-seg '+(w.neutralized?'bar-neutral':'bar-normal');s.style.height=Math.max(np,3)+'%';seg.appendChild(s);}
+    const lbl=document.createElement('div');lbl.className='bar-label';lbl.textContent=w.label;
+    wrap.appendChild(seg);wrap.appendChild(lbl);bars.appendChild(wrap);
+  });
+  const rl=document.getElementById('recup-list');
+  if(!recups.length){rl.innerHTML='<div style="color:var(--muted);font-size:12px;padding:12px 0">Aucune récupération</div>';return;}
+  rl.innerHTML=recups.map((r,i)=>`<div class="recup-item"><div><div style="font-size:13px">${r.date}</div><div style="font-size:11px;color:var(--muted)">${r.note||'Récupération'}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="ri-val ${r.taken?'taken':'pending'}">${minToStr(r.minutesRecup||r.minutes)}<span style="font-size:9px;color:var(--muted);margin-left:4px">(${minToStr(r.minutesHS||r.minutes)} HS)</span></div><button onclick="toggleRecup(${i})" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer">${r.taken?'Annuler':'Pris'}</button><button onclick="delRecup(${i})" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button></div></div>`).join('');
+}
+function addRecup(){const h=prompt('Heures de récup à poser ? (ex: 4)');if(!h||isNaN(h))return;const note=prompt('Note (optionnel) ?')||'';const minutesRecup=parseFloat(h)*60;const minutesHS=minutesRecup/1.25;recups.push({date:new Date().toLocaleDateString('fr-FR'),minutesRecup,minutesHS,note,taken:false});save();renderSolde();showToast('Récupération ajoutée');}
+function toggleRecup(i){recups[i].taken=!recups[i].taken;save();renderSolde();}
+function delRecup(i){recups.splice(i,1);save();renderSolde();}
+function buildCSV(){
+  const keys=Object.keys(data).sort();
+  const lines=['Date;Semaine;Arrivée;Départ;Début coupure;Fin coupure;Durée coupure;Heures nettes;HS Ouverture;HS Entre-coupure;HS Fin journée;Total jour;HS CCN;Type;Note'];
+  const wc={};
+  keys.forEach(k=>{
+    const d=new Date(k),wk=d.getFullYear()+'-W'+String(getISOWeek(d)).padStart(2,'0');
+    if(!wc[wk])wc[wk]=calcWeekByMonday(getMondayOfDate(d));
+    const{rawHS}=wc[wk],e=data[k],f=calcDayFull(e);
+    lines.push([k,'S'+getISOWeek(d),e.start,e.end,e.coupureStart||'',e.coupureEnd||'',f.coupure?minToStr(f.coupure):'',minToStr(f.normal),minToStr(f.hsOuv),minToStr(f.hsHscoup),minToStr(f.hsFin),minToStr(f.totalNet),rawHS<0?'0h00 (neutralisé)':minToStr(Math.max(0,f.totalNet-REF_JOUR)),e.type,e.note||''].join(';'));
+  });
+  return lines;
+}
+function renderExport(){const lines=buildCSV();document.getElementById('export-preview').textContent=lines.slice(0,20).join('\n')+(lines.length>20?'\n…':'');}
+function exportCSV(){const lines=buildCSV();const blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='heures_ccn_'+new Date().toISOString().slice(0,10)+'.csv';a.click();showToast('CSV téléchargé');}
+function copyClipboard(){
+  const{solde,neutralizedCount}=getTotalSolde();
+  const lines=['=== SUIVI HEURES CCN SPORT — '+new Date().toLocaleDateString('fr-FR')+' ===',''];
+  Object.keys(data).sort().slice(-14).forEach(k=>{const d=new Date(k),f=calcDayFull(data[k]);const tags=[];if(data[k].coupureStart)tags.push('coupure '+data[k].coupureStart+'–'+data[k].coupureEnd);if(f.hsOuv>0)tags.push('ouv:'+minToStr(f.hsOuv));if(f.hsHscoup>0)tags.push('hs-coup:'+minToStr(f.hsHscoup));if(f.hsFin>0)tags.push('fin:'+minToStr(f.hsFin));lines.push('S'+getISOWeek(d)+' · '+k+' : '+minToStr(f.totalNet)+(tags.length?' ('+tags.join(', ')+')':''));});
+  lines.push('');lines.push('SOLDE HS (CCN Sport) : '+(solde>=0?'+':'')+minToStr(solde));lines.push('Semaines neutralisées : '+neutralizedCount);
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('Copié !'));
+}
+function goto(page,btn){
+  document.querySelectorAll('.page').forEach(p=>{
+    p.classList.remove('active');
+    p.style.height='0';
+    p.style.overflow='hidden';
+    p.style.display='none';
+  });
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  const activePage=document.getElementById('page-'+page);
+  activePage.style.display='flex';
+  activePage.style.flexDirection='column';
+  activePage.style.height='100%';
+  activePage.style.overflow='';
+  activePage.classList.add('active');
+  btn.classList.add('active');
+  if(page==='semaine')renderSemaine();
+  if(page==='solde')renderSolde();
+  if(page==='export')renderExport();
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+// Bouton aujourd'hui
+function goToCurrentWeek(){weekOff=0;renderSemaine();}
+function updateTodayWeekBtn(){
+  const btn=document.getElementById('today-week-btn');
+  if(btn){
+    const wn=getISOWeek(today);
+    btn.textContent='S'+wn;
+  }
+}
+function goToToday(){calYear=today.getFullYear();calMonth=today.getMonth();renderCal();}
+function updateTodayBtn(){document.getElementById('today-btn').textContent=today.getDate();}
+
+// Taux horaire persistant
+function saveTaux(){localStorage.setItem('taux_horaire',document.getElementById('taux-horaire').value);}
+function loadTaux(){const t=localStorage.getItem('taux_horaire');if(t)document.getElementById('taux-horaire').value=t;}
+
+// Calcul majoration légale : 25% pour les 8 premières HS/sem, 50% au-delà
+function calcMontantDu(){
+  const taux=parseFloat(document.getElementById('taux-horaire').value)||0;
+  if(!taux)return{total:null,detail:[]};
+  const weekKeys=new Set();
+  Object.keys(data).forEach(k=>{const d=new Date(k);weekKeys.add(d.getFullYear()+'-W'+String(getISOWeek(d)).padStart(2,'0'));});
+  let total=0,hs25=0,hs50=0;
+  weekKeys.forEach(wk=>{
+    const[yr,wStr]=wk.split('-W');
+    const jan4=new Date(parseInt(yr),0,4);
+    const monday=new Date(jan4.getTime()+((parseInt(wStr)-1)*7-(jan4.getDay()+6)%7)*86400000);monday.setHours(0,0,0,0);
+    const{hs}=calcWeekByMonday(monday);
+    if(hs<=0)return;
+    const seuil=8*60;
+    const part25=Math.min(hs,seuil);
+    const part50=Math.max(0,hs-seuil);
+    hs25+=part25;hs50+=part50;
+    total+=((part25/60)*taux*1.25)+((part50/60)*taux*1.50);
+  });
+  // Déduire récups déjà prises (converti en heures équivalent brut)
+  const takenHS=recups.filter(r=>r.taken).reduce((s,r)=>s+(r.minutesHS||r.minutes),0);
+  const deductTaken=(takenHS/60)*taux;
+  return{total:Math.max(0,total-deductTaken),hs25,hs50,detail:[
+    {label:'HS à +25% (1→8h/sem)',val:minToStr(hs25),montant:((hs25/60)*taux*1.25).toFixed(2)},
+    {label:'HS à +50% (>8h/sem)',val:minToStr(hs50),montant:((hs50/60)*taux*1.50).toFixed(2)},
+  ]};
+}
+
+// SWIPE sur le calendrier
+(()=>{
+  let sx=0,sy=0;
+  const calPage=document.getElementById('page-cal');
+  calPage.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  calPage.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5){
+      if(dx<0)changeMonth(1);else changeMonth(-1);
+    }
+  },{passive:true});
+})();
+
+loadTaux();updateTodayBtn();updateTodayWeekBtn();
+// Cacher toutes les pages sauf calendrier au démarrage
+document.querySelectorAll('.page').forEach(p=>{
+  if(!p.classList.contains('active')){
+    p.style.display='none';
+    p.style.height='0';
+    p.style.overflow='hidden';
+  }
+});
+document.getElementById('page-cal').style.display='flex';
+document.getElementById('page-cal').style.flexDirection='column';
+document.getElementById('page-cal').style.height='100%';
+renderCal();renderSemaine();renderSolde();
+</script>
+</body>
+</html>
