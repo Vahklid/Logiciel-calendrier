@@ -53,7 +53,7 @@ nav button svg{width:20px;height:20px;}
 .cal-day{border-radius:8px;padding:4px 2px;cursor:pointer;transition:background .15s,border-color .15s;min-height:56px;display:flex;flex-direction:column;align-items:center;border:1px solid transparent;}
 .cal-day:active{transform:scale(.96);}
 .cal-day.other-month{opacity:.3;}
-.cal-day.weekend{opacity:.5;cursor:default;}
+.cal-day.weekend{opacity:.7;}
 .cal-day.today{border-color:var(--accent);}
 .cal-day.has-surplus{background:rgba(200,240,96,.07);}
 .cal-day.has-neutral{background:rgba(96,212,240,.05);}
@@ -485,7 +485,7 @@ function calcDayFull(entry){
 function calcDayNet(entry){return calcDayFull(entry).totalNet;}
 function calcWeekByMonday(monday){
   let totalNet=0,hsOuv=0,hsHscoup=0,hsFin=0;
-  for(let i=0;i<5;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);const f=calcDayFull(data[dateKey(d)]);totalNet+=f.totalNet;hsOuv+=f.hsOuv;hsHscoup+=f.hsHscoup;hsFin+=f.hsFin;}
+  for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);const f=calcDayFull(data[dateKey(d)]);totalNet+=f.totalNet;hsOuv+=f.hsOuv;hsHscoup+=f.hsHscoup;hsFin+=f.hsFin;}
   const rawHS=totalNet-REF_SEMAINE;
   return{totalNet,rawHS,hs:Math.max(0,rawHS),neutralized:rawHS<0,deficit:rawHS<0?Math.abs(rawHS):0,hsOuv,hsHscoup,hsFin};
 }
@@ -631,7 +631,7 @@ function renderCal(){
         const hsDiv=document.createElement('div');hsDiv.className='day-hs '+(neutralized?'neutral':'pos');hsDiv.textContent=minToStr(f.totalNet);cell.appendChild(hsDiv);
         if(hasCoup||hasHS){const extra=document.createElement('div');extra.className='day-hs-extra';extra.textContent=(hasCoup?'⌛':'')+( hasHS?' HS':'');cell.appendChild(extra);}
       }
-      if(!isWE&&!isOM){cell.style.cursor='pointer';cell.onclick=()=>openModal(d,key);}
+      if(!isOM){cell.style.cursor='pointer';cell.onclick=()=>openModal(d,key);}
       row.appendChild(cell);cur.setDate(cur.getDate()+1);
     }
     body.appendChild(row);
@@ -654,7 +654,7 @@ function renderSemaine(){
   days.forEach(d=>{
     const key=dateKey(d),entry=data[key],isWE=d.getDay()===0||d.getDay()===6;
     const f=calcDayFull(entry),hasHS=(f.hsOuv+f.hsHscoup+f.hsFin)>0,hasCoup=!!(entry&&entry.coupureStart);
-    if(entry&&entry.start&&!isWE)joursWorked++;
+    if(entry&&entry.start)joursWorked++;
     const row=document.createElement('div');row.className='day-row';
     row.onclick=()=>openModal(d,key);
     let detail='';if(!isWE&&hasCoup)detail=`<div class="dr-detail">coupure ${entry.coupureStart}–${entry.coupureEnd} (${minToStr(f.coupure)})</div>`;
